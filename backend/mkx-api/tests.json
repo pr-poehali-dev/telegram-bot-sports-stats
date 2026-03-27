@@ -31,22 +31,6 @@
       "expectedStatus": 200,
       "expectedBody": {"ok": true},
       "bodyMatcher": "partial"
-    },
-    {
-      "name": "Get live events with rounds",
-      "method": "GET",
-      "path": "/?action=live",
-      "expectedStatus": 200,
-      "expectedBody": {"ok": true},
-      "bodyMatcher": "partial"
-    },
-    {
-      "name": "Rounds - missing match_id",
-      "method": "GET",
-      "path": "/?action=rounds",
-      "expectedStatus": 400,
-      "expectedBody": {"ok": false},
-      "bodyMatcher": "partial"
     }
   ]
 }

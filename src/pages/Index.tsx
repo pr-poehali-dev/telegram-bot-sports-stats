@@ -4,16 +4,6 @@ import Icon from "@/components/ui/icon";
 const API_URL = "https://functions.poehali.dev/210b78af-97ea-4d9e-86e0-52624db54074";
 const SCRAPER_URL = "https://functions.poehali.dev/4f082b1d-3759-4220-88fd-8587b1ab9b42";
 
-interface RoundData {
-  round_num: number;
-  winner: string | null;
-  p1_health: number | null;
-  p2_health: number | null;
-  finishing_move: string | null;
-  duration_sec: number | null;
-  status: string;
-}
-
 interface MkxEvent {
   id: number;
   match_id: string;
@@ -30,13 +20,8 @@ interface MkxEvent {
   total_result: string | null;
   match_winner: string | null;
   status: string;
-  live_round: number;
-  p1_score: number;
-  p2_score: number;
   sent_to_telegram: boolean;
   created_at: string;
-  updated_at: string;
-  rounds?: RoundData[];
 }
 
 interface StatsData {
@@ -63,7 +48,6 @@ export default function Index() {
   const [scraperStatus, setScraperStatus] = useState<"active" | "error" | "loading">("active");
   const [currentTime, setCurrentTime] = useState("");
   const [events, setEvents] = useState<MkxEvent[]>([]);
-  const [liveEvents, setLiveEvents] = useState<MkxEvent[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,18 +63,15 @@ export default function Index() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [eventsRes, liveRes, statsRes, channelsRes] = await Promise.all([
+      const [eventsRes, statsRes, channelsRes] = await Promise.all([
         fetch(`${API_URL}?action=events&limit=50`),
-        fetch(`${API_URL}?action=live`),
         fetch(`${API_URL}?action=stats`),
         fetch(`${API_URL}?action=channels`),
       ]);
       const eventsData = await eventsRes.json();
-      const liveData = await liveRes.json();
       const statsData = await statsRes.json();
       const channelsData = await channelsRes.json();
       if (eventsData.ok) setEvents(eventsData.events);
-      if (liveData.ok) setLiveEvents(liveData.events);
       if (statsData.ok) setStats(statsData);
       if (channelsData.ok) setChannels(channelsData.channels);
     } catch {
@@ -118,6 +99,7 @@ export default function Index() {
     }
   };
 
+  const liveEvent = events.find(e => e.status === "live");
   const finishedEvents = events.filter(e => e.status === "finished");
 
   const heatData = stats ? [
@@ -202,75 +184,33 @@ export default function Index() {
           ))}
         </div>
 
-        {/* Live matches */}
-        {liveEvents.length > 0 && (
-          <div className="space-y-3 mb-6">
-            {liveEvents.map(ev => (
-              <div key={ev.match_id} className="card-teal bg-card rounded-lg border border-accent/20 animate-fade-in overflow-hidden">
-                {/* Match header */}
-                <div className="flex items-center justify-between flex-wrap gap-3 px-4 py-3 border-b border-accent/10">
-                  <div className="flex items-center gap-3">
-                    <span className="badge-live">● LIVE</span>
-                    <span className="font-oswald text-lg tracking-wide">{ev.player1} vs {ev.player2}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{ev.bookmaker}</span>
-                  </div>
-                  <div className="flex items-center gap-4 font-mono text-sm">
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-xs mb-0.5">Счёт</div>
-                      <div className="font-semibold">
-                        <span className="neon-teal">{ev.p1_score ?? 0}</span>
-                        <span className="text-muted-foreground mx-1">:</span>
-                        <span className="text-orange-400">{ev.p2_score ?? 0}</span>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-xs mb-0.5">Раунд</div>
-                      <div className="font-semibold text-primary">{ev.live_round ?? 1}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-xs mb-0.5">Тотал</div>
-                      <div className="text-muted-foreground">{ev.total ?? "—"}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-xs mb-0.5">КФ П1 / П2</div>
-                      <div><span className="neon-teal">{ev.odds1}</span> / <span className="text-orange-400">{ev.odds2}</span></div>
-                    </div>
-                  </div>
-                </div>
-                {/* Rounds detail */}
-                {ev.rounds && ev.rounds.length > 0 && (
-                  <div className="flex gap-2 px-4 py-2 flex-wrap">
-                    {ev.rounds.map(r => (
-                      <div key={r.round_num} className={`flex items-center gap-2 rounded px-3 py-1.5 border text-xs font-mono ${
-                        r.status === "live"
-                          ? "border-accent/40 bg-accent/5 text-accent"
-                          : r.winner === "P1"
-                          ? "border-blue-500/30 bg-blue-500/5 text-blue-400"
-                          : "border-orange-500/30 bg-orange-500/5 text-orange-400"
-                      }`}>
-                        <span className="font-semibold">Р{r.round_num}</span>
-                        {r.status === "live" ? (
-                          <span className="text-accent animate-pulse">идёт…</span>
-                        ) : (
-                          <>
-                            <span className={r.winner === "P1" ? "text-blue-400" : "text-orange-400"}>
-                              {r.winner === "P1" ? "П1 ✓" : "П2 ✓"}
-                            </span>
-                            {r.finishing_move && <span className="text-muted-foreground">{r.finishing_move}</span>}
-                            {r.p1_health !== null && r.p2_health !== null && (
-                              <span className="text-muted-foreground">
-                                HP: <span className="text-blue-400">{r.p1_health}%</span> / <span className="text-orange-400">{r.p2_health}%</span>
-                              </span>
-                            )}
-                            {r.duration_sec && <span className="text-muted-foreground">{r.duration_sec}с</span>}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+        {/* Live match banner */}
+        {liveEvent && (
+          <div className="card-teal bg-card rounded-lg p-4 mb-6 border border-accent/20 animate-fade-in">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <span className="badge-live">● LIVE</span>
+                <span className="font-oswald text-lg tracking-wide">{liveEvent.player1} vs {liveEvent.player2}</span>
               </div>
-            ))}
+              <div className="flex items-center gap-4 font-mono text-sm">
+                <div className="text-center">
+                  <div className="text-muted-foreground text-xs mb-0.5">КФ П1</div>
+                  <div className="neon-teal font-semibold">{liveEvent.odds1}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground text-xs mb-0.5">КФ П2</div>
+                  <div className="text-orange-400 font-semibold">{liveEvent.odds2}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground text-xs mb-0.5">Раунд 1</div>
+                  <span className={`badge-winner ${liveEvent.round1_winner === "P1" ? "badge-p1" : "badge-p2"}`}>{liveEvent.round1_winner ?? "—"}</span>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground text-xs mb-0.5">Источник</div>
+                  <div className="text-muted-foreground text-xs">{liveEvent.bookmaker}</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -349,32 +289,19 @@ export default function Index() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-1 justify-center items-center">
-                            {[
-                              { w: event.round1_winner, n: 1 },
-                              { w: event.round2_winner, n: 2 },
-                              { w: event.round3_winner, n: 3 },
-                            ].map(({ w, n }) =>
-                              w ? (
-                                <span key={n} title={`Раунд ${n}`} className={`badge-winner text-[10px] px-1.5 py-0.5 ${w === "P1" ? "badge-p1" : "badge-p2"}`}>
-                                  {w === "P1" ? "🔵" : "🔴"}{n}
-                                </span>
+                          <div className="flex gap-1 justify-center">
+                            {[event.round1_winner, event.round2_winner, event.round3_winner].map((r, idx) =>
+                              r ? (
+                                <span key={idx} className={`badge-winner text-[10px] px-1.5 py-0.5 ${r === "P1" ? "badge-p1" : "badge-p2"}`}>{r}</span>
                               ) : (
-                                <span key={n} className="font-mono text-xs text-border">—</span>
+                                <span key={idx} className="font-mono text-xs text-border">—</span>
                               )
                             )}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {event.match_winner ? (
-                            <div>
-                              <span className={`badge-winner ${event.match_winner === "P1" ? "badge-p1" : "badge-p2"}`}>{event.match_winner}</span>
-                              <div className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                                <span className="text-blue-400">{event.p1_score ?? 0}</span>
-                                <span className="mx-0.5">:</span>
-                                <span className="text-orange-400">{event.p2_score ?? 0}</span>
-                              </div>
-                            </div>
+                            <span className={`badge-winner ${event.match_winner === "P1" ? "badge-p1" : "badge-p2"}`}>{event.match_winner}</span>
                           ) : <span className="text-muted-foreground text-xs">—</span>}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground text-center">{event.bookmaker}</td>
