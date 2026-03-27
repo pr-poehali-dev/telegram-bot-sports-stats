@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "Run scraper and get stats",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
